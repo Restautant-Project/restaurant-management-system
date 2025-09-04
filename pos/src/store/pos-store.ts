@@ -236,15 +236,20 @@ export const usePOSStore = create<POSStore>((set, get) => ({
       const cached = sessionStorage.getItem('posProfile');
       if (cached) {
         const profile = JSON.parse(cached);
-        set({ 
-          posProfile: profile, 
-          profileLoading: false,
-          currency: profile.currency || 'INR'
-        });
-        if (!storage.getItem('currencySymbol')) {
-          await get().fetchCurrencySymbol();
+        // Ignore invalid cache without a valid POS Profile name
+        if (profile && profile.name) {
+          set({ 
+            posProfile: profile, 
+            profileLoading: false,
+            currency: profile.currency || 'INR'
+          });
+          if (!storage.getItem('currencySymbol')) {
+            await get().fetchCurrencySymbol();
+          }
+          return;
+        } else {
+          sessionStorage.removeItem('posProfile');
         }
-        return;
       }
 
       set({ profileLoading: true, error: null });
@@ -286,7 +291,8 @@ export const usePOSStore = create<POSStore>((set, get) => ({
 
   fetchMenuItems: async () => {
     const { posProfile, selectedRoom, selectedOrderType } = get();
-    if (!posProfile?.restaurant) return;
+    // Require a valid profile and profile name before fetching menu
+    if (!posProfile?.restaurant || !posProfile?.name) return;
 
     try {
       set({ menuLoading: true, error: null });

@@ -105,6 +105,9 @@ export async function getPosProfileLimitedFields(): Promise<PosProfileLimited> {
 }
 
 export async function getPosProfileFull(posProfileName: string): Promise<PosProfileFull> {
+  if (!posProfileName) {
+    throw new Error('POS Profile name is missing');
+  }
   const doc = await db.getDoc(DOCTYPES.POS_PROFILE, posProfileName);
   return doc;
 }
@@ -114,8 +117,26 @@ export async function getCombinedPosProfile(): Promise<PosProfileCombined> {
   const limitedProfile = await getPosProfileLimitedFields();
   console.log('limitedProfile', limitedProfile);
   
-  // Get full profile using the pos_profile name from limited profile
-  const fullProfile = await getPosProfileFull(limitedProfile.pos_profile);
+  // Resolve POS Profile name
+  let posProfileName = limitedProfile.pos_profile;
+
+  // Fallback: if backend did not return a profile name, try to find by branch
+  if (!posProfileName && limitedProfile.branch) {
+    const list = await db.getDocList<PosProfileFull>(DOCTYPES.POS_PROFILE, {
+      fields: ['name', 'branch', 'currency', 'warehouse', 'company'],
+      filters: [['branch', '=', limitedProfile.branch]],
+      limit: 1 as unknown as number,
+      asDict: true,
+    });
+    posProfileName = (list && list.length > 0) ? list[0].name : '';
+  }
+
+  if (!posProfileName) {
+    throw new Error('No POS Profile found for current branch/user');
+  }
+
+  // Get full profile using the resolved pos_profile name
+  const fullProfile = await getPosProfileFull(posProfileName);
   
   // Merge both profiles
   const combinedProfile: PosProfileCombined = {

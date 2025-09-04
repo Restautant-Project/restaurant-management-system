@@ -453,6 +453,8 @@ def getPosProfile():
     cashier = None
     owner = None
     posProfile = frappe.db.exists("POS Profile", {"branch": branchName})
+    if not posProfile:
+        frappe.throw(_("No POS Profile found for Branch {0}").format(branchName))
     pos_profiles = frappe.get_doc("POS Profile", posProfile)
     global_defaults = frappe.get_single('Global Defaults')
     disable_rounded_total = global_defaults.disable_rounded_total
@@ -493,18 +495,37 @@ def getPosProfile():
                     "user",)
             else:
                 pos_opened_cashier = None
-            for user_details in get_cashier.applicable_for_users:
-                if user_details.custom_main_cashier:
+            # Determine owner from applicable users if configured
+            for user_details in getattr(get_cashier, "applicable_for_users", []):
+                if getattr(user_details, "custom_main_cashier", 0):
                     owner = user_details.user
-                
-                if frappe.session.user == owner:
-                    cashier = owner
+
+            # Prefer owner if current session user is main cashier; otherwise use opened cashier
+            if owner and frappe.session.user == owner:
+                cashier = owner
+            else:
+                cashier = pos_opened_cashier
+
+        else:
+            # Single-cashier mode: use first applicable user if present; else fallbacks
+            users = list(getattr(get_cashier, "applicable_for_users", []))
+            if users:
+                cashier = users[0].user
+                owner = users[0].user
+            else:
+                # Fallback 1: open POS Opening Entry user for this branch
+                pos_opening_user = frappe.db.get_value(
+                    "POS Opening Entry",
+                    {"branch": branch, "status": "Open", "docstatus": 1},
+                    "user",
+                )
+                if pos_opening_user:
+                    cashier = pos_opening_user
+                    owner = pos_opening_user
                 else:
-                    cashier = pos_opened_cashier    
-                
-        else:    
-            cashier = get_cashier.applicable_for_users[0].user
-            owner = get_cashier.applicable_for_users[0].user
+                    # Fallback 2: session user
+                    cashier = frappe.session.user
+                    owner = frappe.session.user
         
         qz_print = pos_profiles.qz_print
         print_type = None
@@ -682,4 +703,3 @@ def validate_pos_close(pos_profile):
         return "Success"
     
     return "Success"
-

@@ -24,6 +24,9 @@ export interface GetAggregatorMenuResponse {
 }
 
 export const getRestaurantMenu = async (posProfile: string, room: string | null, order_type: string | null) => {
+  if (!posProfile) {
+    throw new Error('Cannot fetch restaurant menu: POS Profile is missing');
+  }
   try {
     const response = await call.get<GetMenuResponse>(
       'ury.ury_pos.api.getRestaurantMenu',

@@ -261,7 +261,8 @@ def sync_order(
         )
 
         if not item_prices:
-            frappe.throw(_("No item price found for Item: {0} in Price List: {1}. Please check the price list settings.").format(item.item_code, price_list))
+            missing_item_code = d.get("item")
+            frappe.throw(_("No item price found for Item: {0} in Price List: {1}. Please check the price list settings.").format(missing_item_code, price_list))
 
         else:
             invoice.append(
@@ -301,7 +302,8 @@ def sync_order(
             "URY Table", table, {"occupied": 1, "latest_invoice_time": invoice.creation}
         )
 
-    invoice.db_set("owner", owner)
+    # Do not change system field "owner" after creation; use cashier/assigned user fields instead
+    # Owner is set on creation automatically by Frappe and is set-only-once
     return invoice.as_dict()
 
 
@@ -576,7 +578,7 @@ def make_invoice(customer, payments, cashier, pos_profile,owner, additionalDisco
             "payments", dict(mode_of_payment=d["mode_of_payment"], amount=d["amount"])
         )
 
-    invoice.owner = owner
+    # Avoid changing system field "owner"; use cashier/assigned fields already present on POS Invoice
     invoice.save()
     try:
         invoice.submit()

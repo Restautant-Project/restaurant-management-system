@@ -37,6 +37,9 @@ export async function getRooms(branch: string): Promise<Room[]> {
 
 export async function getTables(room: string): Promise<Table[]> {
   const { call } = await import('./frappe-sdk');
+  if (!room) {
+    throw new Error('Room is required to fetch tables');
+  }
   const res = await call.get('ury.ury_pos.api.getTable', { room });
   return res.message as Table[];
-} 
+}

@@ -89,8 +89,14 @@ export const createConfigSlice: StateCreator<
     const { user } = get();
     const { allowedRoles } = get();
 
-    if (!user || !user.roles || !allowedRoles.length) {
+    if (!user || !user.roles) {
       set({ hasAccess: false });
+      return;
+    }
+
+    // If no roles are configured on POS Profile, treat as unrestricted
+    if (!allowedRoles.length) {
+      set({ hasAccess: true, error: null });
       return;
     }
 
